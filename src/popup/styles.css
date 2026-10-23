@@ -1,0 +1,128 @@
+:root {
+  color-scheme: dark;
+  --bg: #161616;
+  --panel: #1f1f1f;
+  --line: #2f2f2f;
+  --text: #ececec;
+  --muted: #a0a0a0;
+  --accent: #7aa2f7;
+  --danger: #f7768e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  width: 22rem;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, sans-serif;
+}
+
+main {
+  padding: 0.875rem;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.625rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+input,
+textarea,
+select,
+button {
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 3.5rem;
+}
+
+button {
+  margin-top: 0.5rem;
+  border-color: transparent;
+  background: var(--accent);
+  color: #10131c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+button.secondary {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+  font-weight: 400;
+}
+
+p.host {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  overflow-wrap: anywhere;
+}
+
+p.error {
+  margin: 0.5rem 0 0;
+  color: var(--danger);
+  font-size: 0.8rem;
+}
+
+p.note {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0.75rem 0;
+}
+
+.words span {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--panel);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9rem;
+  user-select: all;
+}
+
+code.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.2rem 0.9rem;
+  margin: 0.75rem 0;
+  padding: 0.625rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--panel);
+  font-size: 1.3rem;
+  letter-spacing: 0.2em;
+}

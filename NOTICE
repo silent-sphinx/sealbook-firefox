@@ -1,0 +1,15 @@
+Sealbook Firefox
+Copyright 2026 Silent Sphinx
+
+Licensed under the Apache License, Version 2.0 (the "License"); you may not
+use this file except in compliance with the License. You may obtain a copy of
+the License in the LICENSE file beside this one, or at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+The extension imports its protocol layer from the sibling Sealbook Web
+checkout (Apache-2.0, same copyright holder) and bundles the Sealbook WASM
+crypto module built from the Sealbook server repository (Apache-2.0).
+
+The remaining runtime dependencies are MIT or BSD-3-Clause, and their notices
+travel with their packages.

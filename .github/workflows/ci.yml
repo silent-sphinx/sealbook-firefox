@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+# Three checkouts, because this repo is the thin one: the protocol layer is
+# imported from sealbook-web through the @sealbook/lib alias, and the WASM
+# crypto module is built from the sealbook crate into sealbook-web/src/pkg by
+# that repo's own build-wasm.sh. The relative paths are what the alias and the
+# script resolve, so all three must sit side by side exactly as they do in a
+# developer's checkout.
+#
+# SEALBOOK_REPO_TOKEN must be a token with read access to the contents of the
+# sealbook and sealbook-web repositories: all three are private and the default
+# GITHUB_TOKEN is scoped to this one.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sealbook-firefox
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: sealbook-firefox
+
+      - uses: actions/checkout@v4
+        with:
+          repository: silent-sphinx/sealbook-web
+          path: sealbook-web
+          token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: silent-sphinx/sealbook
+          path: sealbook
+          token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
+
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          target: wasm32-unknown-unknown
+          workspaces: sealbook
+
+      - name: Install wasm-pack
+        run: cargo install wasm-pack --locked
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: sealbook-firefox/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Needs neither the wasm package nor the toolchain that builds it.
+      - name: Lint
+        run: npm run lint
+
+      # Writes into sealbook-web/src/pkg, which the alias chain imports from.
+      - name: Build the WebAssembly package
+        run: npm run wasm
+
+      - name: Run tests
+        run: npm test
+
+      # Checks the imported lib files too, under this repo's flags.
+      - name: Typecheck
+        run: npx tsc -b
+
+      - name: Build the extension
+        run: npx vite build

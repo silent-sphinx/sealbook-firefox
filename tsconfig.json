@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    // Mirrors sealbook-web/tsconfig.app.json exactly. The aliased lib files are
+    // checked under *this* repo's flags, so a looser setting here would report
+    // errors in code that compiles fine upstream.
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "skipLibCheck": true,
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    // No rootDir: the alias pulls files in from a sibling checkout, which would
+    // otherwise sit outside it. Nothing is emitted, so none is needed.
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "paths": {
+      "@sealbook/lib": ["../sealbook-web/src/lib/client.ts"],
+      "@sealbook/lib/*": ["../sealbook-web/src/lib/*"]
+    }
+  },
+  "include": ["src"],
+  // The lib modules' own suites run in sealbook-web, against its config.
+  "exclude": ["../sealbook-web/src/**/*.test.ts", "../sealbook-web/src/**/*.test.tsx"]
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "react", "jsx-a11y", "vitest"],
+  "categories": {
+    "correctness": "error"
+  },
+  "ignorePatterns": ["dist/**"],
+  "rules": {
+    // Several suites assert through helpers that take the expectation with
+    // them, which this rule cannot see into.
+    "vitest/expect-expect": "off",
+    // Off: a popup is opened by a deliberate click on the toolbar button and is
+    // one form with one first field. Focusing it is what the click asked for,
+    // and leaving the caret outside means the user has to reach for the mouse
+    // again in a window that closes the moment it loses focus.
+    "jsx-a11y/no-autofocus": "off",
+    "jsx-a11y/label-has-associated-control": ["error", { "depth": 3 }]
+  }
+}
