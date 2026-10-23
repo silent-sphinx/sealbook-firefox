@@ -11,6 +11,7 @@ export type Request =
   | { kind: "status" }
   | { kind: "unlock"; password: string }
   | { kind: "lock" }
+  | { kind: "unpair" }
   | { kind: "beginPairing"; server: string; username: string }
   | { kind: "pairingStatus" }
   | { kind: "completePairing"; password: string }
@@ -25,8 +26,6 @@ export type Status = {
   lockState: LockState;
   /** Absent while unpaired. Plaintext metadata, so it costs no unlock. */
   account?: { server: string; username: string };
-  /** Only known once unlocked and a vault pass has run. */
-  bookmarksEnabled?: boolean;
 };
 
 export type Lookup = {
@@ -79,6 +78,7 @@ export function isRequest(value: unknown): value is Request {
   switch (value.kind) {
     case "status":
     case "lock":
+    case "unpair":
     case "pairingStatus":
     case "cancelPairing":
     case "openPairingTab":

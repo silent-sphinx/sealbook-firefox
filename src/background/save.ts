@@ -67,7 +67,7 @@ export async function saveBookmark(
     cache,
     session.manifestSeq,
     entryOf(id, draft, raw),
-    normalizeUrl(draft.url),
+    draft.url,
   );
   return { id, cache: next };
 }

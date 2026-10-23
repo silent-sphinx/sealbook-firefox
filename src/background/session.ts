@@ -12,6 +12,15 @@ import { loadUnlocked, saveDevice, saveUnlocked, type Unlocked } from "../shared
  * (see `extStorage.Unlocked`) and this module reassembles a `Session` from it,
  * which is cheap: no network, and `initWasm` once per wake.
  */
+
+// At import, not inside `ensureWasm`: the lib defaults to collapsing
+// `https://127.0.0.1:8443` to a relative path for sealbook-web's Vite proxy, and
+// a relative path here resolves against moz-extension://<uuid>/, where every
+// request fails as "The server could not be reached.". Every background module
+// that can make a protocol call imports this one, so this runs before the first
+// request of a freshly woken page whatever order the handlers run in.
+setProxyLoopback(false);
+
 let session: Session | null = null;
 let wasmReady: Promise<void> | null = null;
 
@@ -32,9 +41,6 @@ export class LockedError extends Error {
  */
 export function ensureWasm(): Promise<void> {
   wasmReady ??= (async () => {
-    // A relative `/v1/...` would resolve against moz-extension://<uuid>/ and
-    // 404 against the extension's own package. Set before any request is made.
-    setProxyLoopback(false);
     await initWasm();
     const built = { protocol: protocolVersion(), payload: payloadSchemaVersion() };
     if (built.protocol !== PROTOCOL_VERSION || built.payload !== PAYLOAD_SCHEMA_VERSION) {

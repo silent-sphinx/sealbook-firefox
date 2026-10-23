@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import type { Lookup, Status } from "../shared/messages";
+import { AccountFooter } from "./AccountFooter";
 import { EditForm } from "./EditForm";
 import { Unlock } from "./Unlock";
 import { send } from "./rpc";
@@ -13,6 +14,9 @@ type Phase =
   | { at: "error"; message: string }
   | { at: "ready"; lookup: Lookup; page: PageRef }
   | { at: "saved" };
+
+/** What a reply of the wrong shape is reported as, rather than a stuck spinner. */
+const UNEXPECTED = "The background page answered something this popup cannot read.";
 
 export function Popup() {
   const [phase, setPhase] = useState<Phase>({ at: "loading" });
@@ -29,7 +33,10 @@ export function Popup() {
       setPhase({ at: "error", message: statusResponse.error });
       return;
     }
-    if (statusResponse.kind !== "status") return;
+    if (statusResponse.kind !== "status") {
+      setPhase({ at: "error", message: UNEXPECTED });
+      return;
+    }
     setAccount(statusResponse.status.account);
     if (statusResponse.status.lockState === "unpaired") {
       setPhase({ at: "unpaired" });
@@ -48,7 +55,10 @@ export function Popup() {
       setPhase({ at: "error", message: lookupResponse.error });
       return;
     }
-    if (lookupResponse.kind !== "lookup") return;
+    if (lookupResponse.kind !== "lookup") {
+      setPhase({ at: "error", message: UNEXPECTED });
+      return;
+    }
     setPhase({ at: "ready", lookup: lookupResponse.lookup, page });
   }, []);
 
@@ -57,6 +67,11 @@ export function Popup() {
   // happen during render. Every setState inside `load` is behind an await.
   useEffect(() => {
     // oxlint-disable-next-line react/set-state-in-effect
+    void load();
+  }, [load]);
+
+  const reload = useCallback(() => {
+    setPhase({ at: "loading" });
     void load();
   }, [load]);
 
@@ -85,58 +100,72 @@ export function Popup() {
       );
     case "locked":
       return (
-        <Unlock
-          account={account}
-          onUnlocked={() => {
-            setPhase({ at: "loading" });
-            void load();
-          }}
-        />
+        <>
+          <Unlock account={account} onUnlocked={reload} />
+          {/* No Lock here, and a way out for a password that is not coming back. */}
+          <AccountFooter canLock={false} onChanged={reload} />
+        </>
       );
     case "unsupported":
-      return <p className="note">This page has no address Sealbook can save.</p>;
+      return (
+        <>
+          <p className="note">This page has no address Sealbook can save.</p>
+          <AccountFooter account={account} canLock onChanged={reload} />
+        </>
+      );
     case "error":
       return (
         <div>
           <p className="error">{phase.message}</p>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              setPhase({ at: "loading" });
-              void load();
-            }}
-          >
+          <button type="button" className="secondary" onClick={reload}>
             Try again
           </button>
         </div>
       );
     case "saved":
-      return <p className="note">Saved to Sealbook.</p>;
+      return (
+        <div>
+          <p className="note">Saved to Sealbook.</p>
+          <div className="row">
+            <button type="button" className="secondary" onClick={reload}>
+              Edit it
+            </button>
+            <button type="button" className="secondary" onClick={() => window.close()}>
+              Close
+            </button>
+          </div>
+        </div>
+      );
     case "ready": {
       if (!phase.lookup.bookmarksEnabled) {
         return (
-          <p className="note">
-            Bookmarks are turned off for this account. Enable them in the Sealbook
-            web app, or this extension would write rows it hides.
-          </p>
+          <>
+            <p className="note">
+              Bookmarks are turned off for this account. Enable them in the
+              Sealbook web app, or this extension would write rows it hides.
+            </p>
+            <AccountFooter account={account} canLock onChanged={reload} />
+          </>
         );
       }
       const existing = phase.lookup.existing;
       return (
-        <EditForm
-          draft={
-            existing?.draft ?? {
-              url: phase.page.url,
-              title: phase.page.title,
-              collectionId: phase.lookup.defaultCollectionId,
-              tags: [],
+        <>
+          <EditForm
+            draft={
+              existing?.draft ?? {
+                url: phase.page.url,
+                title: phase.page.title,
+                collectionId: phase.lookup.defaultCollectionId,
+                tags: [],
+              }
             }
-          }
-          collections={phase.lookup.collections}
-          existingId={existing?.id}
-          onSaved={() => setPhase({ at: "saved" })}
-        />
+            collections={phase.lookup.collections}
+            existingId={existing?.id}
+            onSaved={() => setPhase({ at: "saved" })}
+          />
+          <AccountFooter account={account} canLock onChanged={reload} />
+        </>
       );
     }
   }

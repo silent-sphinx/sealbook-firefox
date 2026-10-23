@@ -126,3 +126,24 @@ code.confirm {
   font-size: 1.3rem;
   letter-spacing: 0.2em;
 }
+
+/* The buttons the full-width rule above does not apply to: two side by side. */
+.row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.row button {
+  width: auto;
+  flex: 1;
+}
+
+.footer {
+  margin-top: 0.875rem;
+  padding-top: 0.625rem;
+  border-top: 1px solid var(--line);
+}
+
+.footer p.host {
+  margin-bottom: 0.5rem;
+}

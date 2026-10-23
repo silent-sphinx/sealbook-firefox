@@ -22,7 +22,13 @@ export function Pair() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [copy, setCopy] = useState<"idle" | "copied" | "refused">("idle");
+
+  useEffect(() => {
+    if (copy === "idle") return;
+    const id = window.setTimeout(() => setCopy("idle"), 2000);
+    return () => window.clearTimeout(id);
+  }, [copy]);
 
   useEffect(() => {
     if (pairing.phase !== "waiting" || done) return;
@@ -128,12 +134,15 @@ export function Pair() {
         type="button"
         className="secondary"
         onClick={() => {
-          void navigator.clipboard.writeText(pairing.pairCode ?? "");
-          setCopied(true);
-          window.setTimeout(() => setCopied(false), 2000);
+          // A clipboard the browser refuses is not a dead end: the words are on
+          // screen to be typed, which is what the instruction above asks for.
+          void navigator.clipboard.writeText(pairing.pairCode ?? "").then(
+            () => setCopy("copied"),
+            () => setCopy("refused"),
+          );
         }}
       >
-        {copied ? "Copied" : "Copy code"}
+        {copy === "copied" ? "Copied" : copy === "refused" ? "Clipboard refused" : "Copy code"}
       </button>
       <p className="note">
         Then check that both devices show this same confirmation code. Compare it

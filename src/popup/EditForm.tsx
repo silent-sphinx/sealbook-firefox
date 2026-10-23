@@ -5,9 +5,9 @@ import { send } from "./rpc";
 /**
  * The save form.
  *
- * It submits to the background page and closes on success. The write itself runs
- * there, so a popup dismissed the instant after Save does not abort a
- * manifest-signing write half way through.
+ * It submits to the background page and hands the id to its caller. The write
+ * itself runs there, so a popup dismissed the instant after Save does not abort
+ * a manifest-signing write half way through.
  */
 export function EditForm({
   draft,

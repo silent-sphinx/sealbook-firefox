@@ -1,7 +1,9 @@
 import { ensureDefaultBookmarkCollection, loginAccount } from "@sealbook/lib";
 import { normalizeUrl } from "@sealbook/lib/bookmark";
+import type { BookmarkDraft } from "@sealbook/lib/types";
 import type { Request, Response, Status } from "../shared/messages";
 import {
+  forgetDevice,
   hasBootstrapped,
   loadDevice,
   loadDeviceMetadata,
@@ -20,6 +22,7 @@ import { draftFromEntry, saveBookmark } from "./save";
 import {
   currentPassword,
   dropSession,
+  ensureWasm,
   hasUnlocked,
   LockedError,
   openSession,
@@ -44,6 +47,14 @@ export async function handle(request: Request): Promise<Response> {
     case "lock":
       dropSession();
       await lock();
+      return { ok: true, kind: "done" };
+    case "unpair":
+      // Local only: the device stays on the account's roster, which is revoked
+      // from the web app. Nothing here can revoke it, because doing so is a
+      // signed roster write and this device's keys are what is being discarded.
+      dropSession();
+      cancelPairing();
+      await forgetDevice();
       return { ok: true, kind: "done" };
     case "beginPairing":
       return {
@@ -82,6 +93,9 @@ async function unlock(password: string): Promise<Response> {
   if (!state) {
     return { ok: false, error: "That password did not open this device's keys." };
   }
+  // Before the login, which signs its challenge with the bundled module: a stale
+  // build should fail as itself here rather than part way through OPAQUE.
+  await ensureWasm();
   // The stored envelope holds no token, so unlocking is a login. It also runs
   // `syncRoster`, which is where the roster check and the rollback pin happen.
   await openSession(await loginAccount(state, password), password);
@@ -121,10 +135,7 @@ async function lookup(url: string): Promise<Response> {
   };
 }
 
-async function save(
-  draft: Parameters<typeof saveBookmark>[3],
-  existingId?: string,
-): Promise<Response> {
+async function save(draft: BookmarkDraft, existingId?: string): Promise<Response> {
   const password = await currentPassword();
   if (password === null) throw new LockedError();
   const cache = await warmCache(password);
