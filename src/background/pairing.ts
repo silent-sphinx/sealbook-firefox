@@ -1,4 +1,4 @@
-import { loginAccount, normalizeServer, pairJoin, pairReady, type Session } from "@sealbook/lib";
+import { loginAccount, normalizeServer, pairJoin, pairStatus, type Session } from "@sealbook/lib";
 import type { DeviceState } from "@sealbook/lib/types";
 import type { PairingStatus } from "../shared/messages";
 import { ensureWasm, openSession } from "./session";
@@ -64,17 +64,18 @@ export async function beginPairing(server: string, username: string): Promise<Pa
 async function poll(target: NonNullable<typeof pending>): Promise<void> {
   if (pending !== target || target.approved) return;
   try {
-    if (await pairReady(target.server, target.pairCode)) {
+    // Core reads expiry off the status code, so it arrives here as a state
+    // rather than as an error whose text has to be matched.
+    const status = await pairStatus(target.server, target.pairCode);
+    if (status === "Ready") {
       target.approved = true;
       clearInterval(target.poll);
-    }
-  } catch (err) {
-    const message = (err instanceof Error ? err.message : String(err)).toLowerCase();
-    if (message.includes("expired") || message.includes("not found")) {
+    } else if (status === "Expired") {
       target.error = "That pairing request expired. Start again.";
       clearInterval(target.poll);
     }
-    // Anything else is treated as transient; keep polling.
+  } catch {
+    // A request that did not reach the server is transient; keep polling.
   }
 }
 
