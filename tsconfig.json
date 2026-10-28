@@ -28,5 +28,5 @@
   },
   "include": ["src"],
   // The lib modules' own suites run in sealbook-web, against its config.
-  "exclude": ["../sealbook-web/src/**/*.test.ts", "../sealbook-web/src/**/*.test.tsx"]
+  "exclude": ["src/test/wasm.ts", "../sealbook-web/src/**/*.test.ts", "../sealbook-web/src/**/*.test.tsx"]
 }

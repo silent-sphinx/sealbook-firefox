@@ -16,6 +16,7 @@ export default defineConfig({
   },
   test: {
     include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test/wasm.ts"],
     // No global `environment`: the logic suites run under node, and the
     // component suites opt into jsdom with a `@vitest-environment` docblock.
     // Nothing in @sealbook/lib is retested here; that is sealbook-web's job,
