@@ -26,16 +26,28 @@ jobs:
         with:
           path: sealbook-firefox
 
+      - name: Read the sealbook-web pin
+        id: web_pin
+        working-directory: sealbook-firefox
+        run: echo "sha=$(grep -v '^[[:space:]]*#' sealbook-web.pin | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
         with:
           repository: silent-sphinx/sealbook-web
           path: sealbook-web
+          ref: ${{ steps.web_pin.outputs.sha }}
           token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
+
+      - name: Read the sealbook pin
+        id: pin
+        working-directory: sealbook-web
+        run: echo "sha=$(grep -v '^[[:space:]]*#' sealbook.pin | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
           repository: silent-sphinx/sealbook
           path: sealbook
+          ref: ${{ steps.pin.outputs.sha }}
           token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
