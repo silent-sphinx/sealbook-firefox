@@ -36,7 +36,17 @@ jobs:
           repository: silent-sphinx/sealbook-web
           path: sealbook-web
           ref: ${{ steps.web_pin.outputs.sha }}
+          fetch-depth: 0
           token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
+
+      - name: The sealbook-web pin is on a published branch
+        working-directory: sealbook-web
+        run: |
+          for branch in main v2; do
+            git merge-base --is-ancestor HEAD "origin/$branch" && exit 0
+          done
+          echo "::error::the sealbook-web pin is on neither main nor v2"
+          exit 1
 
       - name: Read the sealbook pin
         id: pin
@@ -48,7 +58,17 @@ jobs:
           repository: silent-sphinx/sealbook
           path: sealbook
           ref: ${{ steps.pin.outputs.sha }}
+          fetch-depth: 0
           token: ${{ secrets.SEALBOOK_REPO_TOKEN }}
+
+      - name: The sealbook pin is on a published branch
+        working-directory: sealbook
+        run: |
+          for branch in main v2; do
+            git merge-base --is-ancestor HEAD "origin/$branch" && exit 0
+          done
+          echo "::error::the sealbook pin is on neither main nor v2"
+          exit 1
 
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
