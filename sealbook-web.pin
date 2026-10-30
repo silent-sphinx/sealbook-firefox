@@ -1,3 +1,3 @@
 # The sealbook-web commit this repo builds its protocol layer from.
 # Checked by scripts/preflight.mjs; moved by scripts/update-web-pin.mjs.
-51c7329974b097dc0b8bfba9bf7549a3cfa5458b
+97c55aaeba9cb163732a45148038d48f6b5c3838
