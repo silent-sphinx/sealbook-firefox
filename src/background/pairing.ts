@@ -1,4 +1,4 @@
-import { loginAccount, normalizeServer, pairJoin, pairStatus, type Session } from "@sealbook/lib";
+import { loginAccount, normalizeServer, pairJoin, pairPoll, type Session } from "@sealbook/lib";
 import type { DeviceState } from "@sealbook/lib/types";
 import type { PairingStatus } from "../shared/messages";
 import { ensureWasm, openSession } from "./session";
@@ -25,8 +25,6 @@ let pending: {
   poll: number;
 } | null = null;
 
-const POLL_INTERVAL_MS = 2000;
-
 export function pairingStatus(): PairingStatus {
   if (!pending) return { phase: "idle" };
   const shown = { pairCode: pending.pairCode, confirm: pending.confirm };
@@ -36,7 +34,7 @@ export function pairingStatus(): PairingStatus {
 
 export function cancelPairing(): void {
   if (!pending) return;
-  clearInterval(pending.poll);
+  clearTimeout(pending.poll);
   pending = null;
 }
 
@@ -54,28 +52,22 @@ export async function beginPairing(server: string, username: string): Promise<Pa
     poll: 0,
   };
   const target = pending;
-  target.poll = setInterval(() => {
-    void poll(target);
-  }, POLL_INTERVAL_MS) as unknown as number;
   void poll(target);
   return pairingStatus();
 }
 
 async function poll(target: NonNullable<typeof pending>): Promise<void> {
   if (pending !== target || target.approved) return;
-  try {
-    // Core reads expiry off the status code, so it arrives here as a state
-    // rather than as an error whose text has to be matched.
-    const status = await pairStatus(target.server, target.pairCode);
-    if (status === "Ready") {
-      target.approved = true;
-      clearInterval(target.poll);
-    } else if (status === "Expired") {
-      target.error = "That pairing request expired. Start again.";
-      clearInterval(target.poll);
-    }
-  } catch {
-    // A request that did not reach the server is transient; keep polling.
+  const next = await pairPoll(target.server, target.pairCode);
+  if (pending !== target) return;
+  if (next === "Ready") {
+    target.approved = true;
+  } else if (next === "Expired") {
+    target.error = "That pairing request expired. Start again.";
+  } else {
+    target.poll = setTimeout(() => {
+      void poll(target);
+    }, next.Wait.after_ms) as unknown as number;
   }
 }
 
