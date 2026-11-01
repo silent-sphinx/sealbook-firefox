@@ -42,10 +42,10 @@ jobs:
       - name: The sealbook-web pin is on a published branch
         working-directory: sealbook-web
         run: |
-          for branch in main v2; do
+          for branch in main v2 release-1; do
             git merge-base --is-ancestor HEAD "origin/$branch" && exit 0
           done
-          echo "::error::the sealbook-web pin is on neither main nor v2"
+          echo "::error::the sealbook-web pin is on none of main, v2 or release-1"
           exit 1
 
       - name: Read the sealbook pin
@@ -64,10 +64,10 @@ jobs:
       - name: The sealbook pin is on a published branch
         working-directory: sealbook
         run: |
-          for branch in main v2; do
+          for branch in main v2 release-1; do
             git merge-base --is-ancestor HEAD "origin/$branch" && exit 0
           done
-          echo "::error::the sealbook pin is on neither main nor v2"
+          echo "::error::the sealbook pin is on none of main, v2 or release-1"
           exit 1
 
       - name: No host logic that belongs in core
