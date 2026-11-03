@@ -77,7 +77,7 @@ jobs:
         with:
           toolchain: stable
           target: wasm32-unknown-unknown
-          workspaces: sealbook
+          cache-workspaces: sealbook
 
       - name: Install wasm-pack
         run: cargo install wasm-pack --locked
