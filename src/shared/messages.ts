@@ -34,6 +34,8 @@ export type Lookup = {
   bookmarksEnabled: boolean;
   /** The bookmark already holding this URL, when the cache knows of one. */
   existing?: { id: string; draft: BookmarkDraft };
+  /** This extension's name on the account's device list. */
+  deviceName?: string;
 };
 
 export type PairingStatus = {

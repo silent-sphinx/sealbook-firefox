@@ -130,6 +130,7 @@ async function lookup(url: string): Promise<Response> {
       collections: cache.collections,
       defaultCollectionId: defaultCollectionId(cache),
       bookmarksEnabled: cache.bookmarksEnabled,
+      deviceName: cache.deviceName || undefined,
       existing: entry ? { id: entry.id, draft: draftFromEntry(entry, url) } : undefined,
     },
   };

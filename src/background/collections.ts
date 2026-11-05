@@ -1,4 +1,11 @@
-import { listVault, type Session } from "@sealbook/lib";
+import {
+  browserOs,
+  ensureDeviceLabel,
+  listVault,
+  thisDeviceName,
+  type Session,
+} from "@sealbook/lib";
+import { log } from "@sealbook/lib/log";
 import {
   DEFAULT_BOOKMARK_COLLECTION_ID,
   normalizeUrl,
@@ -6,6 +13,7 @@ import {
 } from "@sealbook/lib/bookmark";
 import { manifestState } from "@sealbook/lib/clientCore";
 import type { Bookmark, BookmarkCollection } from "@sealbook/lib/types";
+import type { DeviceLabel } from "@sealbook/lib/devices";
 import { loadCache, saveCache } from "../shared/extStorage";
 
 /**
@@ -37,6 +45,8 @@ export type Cache = {
   bookmarksEnabled: boolean;
   /** Keyed on `normalizeUrl`, so `example.com` and `https://example.com` collide. */
   urlIndex: Record<string, IndexEntry>;
+  /** This extension's device name, shown in the popup footer. */
+  deviceName: string;
 };
 
 /**
@@ -73,13 +83,31 @@ export function buildIndex(bookmarks: Bookmark[]): Record<string, IndexEntry> {
   return index;
 }
 
+/**
+ * Labels this device when its label is missing or stale. Best effort: the
+ * write moves the manifest on, so the next popup rebuilds once more and finds
+ * the label current.
+ */
+async function labelThisDevice(session: Session, labels: DeviceLabel[]): Promise<DeviceLabel[]> {
+  try {
+    const written = await ensureDeviceLabel(session, labels, "firefox", browserOs());
+    if (!written) return labels;
+    return [...labels.filter((label) => label.object_id !== written.object_id), written];
+  } catch (err) {
+    log.warn("this device's label could not be written", { reason: String(err) });
+    return labels;
+  }
+}
+
 async function rebuild(session: Session, seq: number): Promise<Cache> {
   const listing = await listVault(session);
+  const labels = await labelThisDevice(session, listing.deviceLabels);
   return {
     manifestSeq: seq,
     collections: sortCollections(listing.bookmarkCollections),
     bookmarksEnabled: listing.accountSettings.features.bookmarks,
     urlIndex: buildIndex(listing.bookmarks),
+    deviceName: thisDeviceName(session, labels),
   };
 }
 
@@ -95,7 +123,14 @@ export async function readCache(
 ): Promise<{ cache: Cache; listed: boolean }> {
   const { seq } = await manifestState(session);
   const cached = await loadCache<Cache>(password);
-  if (cached && cached.manifestSeq === seq && Array.isArray(cached.collections)) {
+  // A cache from before device names had none, and rebuilding is what labels
+  // this device.
+  if (
+    cached &&
+    cached.manifestSeq === seq &&
+    Array.isArray(cached.collections) &&
+    typeof cached.deviceName === "string"
+  ) {
     return { cache: cached, listed: false };
   }
   const cache = await rebuild(session, seq);

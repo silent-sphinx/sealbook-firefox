@@ -5,13 +5,17 @@ import { installExtensionStub, removeExtensionStub } from "../test/extension";
 
 const listVault = vi.fn<(...args: never[]) => Promise<unknown>>();
 const manifestState = vi.fn<(...args: never[]) => Promise<unknown>>();
+const ensureDeviceLabel = vi.fn<(...args: unknown[]) => Promise<unknown>>();
+const thisDeviceName = vi.fn<(...args: unknown[]) => string>();
+const browserOs = vi.fn<() => string>();
 
 // Mocked rather than exercised: the protocol layer has its own suite in
 // sealbook-web, and running it twice is how the two drift.
-vi.mock("@sealbook/lib", () => ({ listVault }));
+vi.mock("@sealbook/lib", () => ({ listVault, ensureDeviceLabel, thisDeviceName, browserOs }));
 vi.mock("@sealbook/lib/clientCore", () => ({ manifestState }));
 
 const { buildIndex, defaultCollectionId, readCache, recordSave } = await import("./collections");
+const { saveCache } = await import("../shared/extStorage");
 const { DEFAULT_BOOKMARK_COLLECTION_ID } = await import("@sealbook/lib/bookmark");
 
 const PASSWORD = "correct horse battery";
@@ -37,6 +41,7 @@ function listing(bookmarks: Bookmark[], bookmarksEnabled = true) {
       { id: DEFAULT_BOOKMARK_COLLECTION_ID, name: "Default Collection", raw: "{}" },
     ],
     accountSettings: { features: { bookmarks: bookmarksEnabled } },
+    deviceLabels: [],
   };
 }
 
@@ -44,6 +49,9 @@ beforeEach(() => {
   installExtensionStub();
   listVault.mockReset();
   manifestState.mockReset();
+  ensureDeviceLabel.mockReset().mockResolvedValue(undefined);
+  thisDeviceName.mockReset().mockReturnValue("Swift Otter");
+  browserOs.mockReset().mockReturnValue("macOS");
 });
 
 afterEach(() => {
@@ -150,5 +158,50 @@ describe("folding a write into the cache", () => {
     const reread = await readCache(session, PASSWORD);
     expect(reread.listed).toBe(false);
     expect(reread.cache.urlIndex["https://example.com"]?.title).toBe("Renamed");
+  });
+});
+
+describe("this device's label", () => {
+  it("is checked on a rebuild, and its name cached for the popup", async () => {
+    manifestState.mockResolvedValue({ seq: 3 });
+    listVault.mockResolvedValue(listing([]));
+
+    const { cache } = await readCache(session, PASSWORD);
+
+    expect(ensureDeviceLabel).toHaveBeenCalledWith(session, [], "firefox", "macOS");
+    expect(cache.deviceName).toBe("Swift Otter");
+  });
+
+  it("names the device from the label it just wrote", async () => {
+    const written = { object_id: "l1", payload: "{}" };
+    manifestState.mockResolvedValue({ seq: 3 });
+    listVault.mockResolvedValue(listing([]));
+    ensureDeviceLabel.mockResolvedValue(written);
+
+    await readCache(session, PASSWORD);
+
+    expect(thisDeviceName).toHaveBeenCalledWith(session, [written]);
+  });
+
+  it("still builds the cache when the label cannot be written", async () => {
+    manifestState.mockResolvedValue({ seq: 3 });
+    listVault.mockResolvedValue(listing([bookmark({})]));
+    ensureDeviceLabel.mockRejectedValue(new Error("offline"));
+
+    const { cache } = await readCache(session, PASSWORD);
+
+    expect(cache.urlIndex["https://example.com"]?.id).toBe("b1");
+    expect(cache.deviceName).toBe("Swift Otter");
+  });
+
+  it("rebuilds a current cache saved before devices had names", async () => {
+    manifestState.mockResolvedValue({ seq: 3 });
+    listVault.mockResolvedValue(listing([]));
+    await saveCache(PASSWORD, { manifestSeq: 3, collections: [], bookmarksEnabled: true, urlIndex: {} });
+
+    const { listed } = await readCache(session, PASSWORD);
+
+    expect(listed).toBe(true);
+    expect(ensureDeviceLabel).toHaveBeenCalledTimes(1);
   });
 });

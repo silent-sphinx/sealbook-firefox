@@ -144,7 +144,12 @@ export function Popup() {
               Bookmarks are turned off for this account. Enable them in the
               Sealbook web app, or this extension would write rows it hides.
             </p>
-            <AccountFooter account={account} canLock onChanged={reload} />
+            <AccountFooter
+              account={account}
+              deviceName={phase.lookup.deviceName}
+              canLock
+              onChanged={reload}
+            />
           </>
         );
       }
@@ -164,7 +169,12 @@ export function Popup() {
             existingId={existing?.id}
             onSaved={() => setPhase({ at: "saved" })}
           />
-          <AccountFooter account={account} canLock onChanged={reload} />
+          <AccountFooter
+            account={account}
+            deviceName={phase.lookup.deviceName}
+            canLock
+            onChanged={reload}
+          />
         </>
       );
     }

@@ -29,6 +29,7 @@ function unlocked(): (request: Request) => Response {
             collections: [{ id: "c-default", name: "Default Collection", raw: "{}" }],
             defaultCollectionId: "c-default",
             bookmarksEnabled: true,
+            deviceName: "Swift Otter",
           },
         };
       case "save":
@@ -71,6 +72,11 @@ describe("the popup", () => {
 
     expect(await screen.findByRole("button", { name: "Save" })).toBeTruthy();
     expect(screen.getByText("alice at https://127.0.0.1:8443")).toBeTruthy();
+  });
+
+  it("shows the name this extension goes by on the account's device list", async () => {
+    render(<Popup />);
+    expect(await screen.findByText("This device: Swift Otter")).toBeDefined();
   });
 
   it("locks on demand, which drops the keys and leaves the device enrolled", async () => {

@@ -23,6 +23,7 @@ function cache(): Cache {
     collections: [{ id: DEFAULT_BOOKMARK_COLLECTION_ID, name: "Default Collection", raw: "{}" }],
     bookmarksEnabled: true,
     urlIndex: {},
+    deviceName: "Swift Otter",
   };
 }
 

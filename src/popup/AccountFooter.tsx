@@ -10,10 +10,12 @@ import { send } from "./rpc";
  */
 export function AccountFooter({
   account,
+  deviceName,
   canLock,
   onChanged,
 }: {
   account?: { server: string; username: string };
+  deviceName?: string;
   canLock: boolean;
   onChanged: () => void;
 }) {
@@ -71,6 +73,7 @@ export function AccountFooter({
           {account.username} at {account.server}
         </p>
       ) : null}
+      {deviceName ? <p className="host">This device: {deviceName}</p> : null}
       <div className="row">
         {canLock ? (
           <button
