@@ -74,8 +74,9 @@ async function poll(target: NonNullable<typeof pending>): Promise<void> {
 /**
  * Finishes pairing with the account password.
  *
- * `loginAccount` runs `syncRoster` itself, so the roster verification and the
- * rollback pin come with it rather than needing a step here.
+ * `loginAccount` runs `adoptKey` itself, so the roster verification, the check
+ * of the served key against it, and the rollback pin come with it rather than
+ * needing a step here.
  */
 export async function completePairing(password: string): Promise<void> {
   if (!pending) throw new Error("There is no pairing in progress.");
