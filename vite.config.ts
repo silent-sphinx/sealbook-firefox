@@ -22,6 +22,10 @@ export default defineConfig({
       { find: /^@sealbook\/lib$/u, replacement: `${lib}/client.ts` },
       { find: /^@sealbook\/lib\//u, replacement: `${lib}/` },
     ],
+    // A package the shared lib imports resolves from this checkout, where CI
+    // installs it, rather than from the sibling's node_modules, which CI never
+    // installs.
+    dedupe: ["uqr"],
   },
   build: {
     outDir: "dist",

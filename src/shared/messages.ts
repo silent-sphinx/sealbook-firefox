@@ -42,8 +42,8 @@ export type PairingStatus = {
   phase: "idle" | "waiting" | "approved" | "failed";
   /** The eight words the user types into the device that approves this one. */
   pairCode?: string;
-  /** The code the user compares against the web app, digit for digit. */
-  confirm?: string;
+  /** The same code, as a QR code holds it, for a phone to scan. */
+  qrText?: string;
   error?: string;
 };
 

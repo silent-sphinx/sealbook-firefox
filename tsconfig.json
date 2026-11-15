@@ -23,7 +23,9 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@sealbook/lib": ["../sealbook-web/src/lib/client.ts"],
-      "@sealbook/lib/*": ["../sealbook-web/src/lib/*"]
+      "@sealbook/lib/*": ["../sealbook-web/src/lib/*"],
+      // As `resolve.dedupe` in vite.config.ts: from this checkout, which CI installs.
+      "uqr": ["./node_modules/uqr"]
     }
   },
   "include": ["src"],

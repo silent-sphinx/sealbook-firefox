@@ -3,7 +3,8 @@ import type { PairingStatus } from "../shared/messages";
 import { ensureHostPermission } from "../shared/permissions";
 import { send } from "../popup/rpc";
 import { describeError } from "@sealbook/lib/log";
-import { confirmationGroups } from "@sealbook/lib/pairing";
+import { pairCodeWords } from "@sealbook/lib/pairing";
+import { qrPath } from "@sealbook/lib/qr";
 
 /**
  * Pairing, as a full extension tab.
@@ -122,11 +123,12 @@ export function Pair() {
     <div>
       <h1>Approve this device</h1>
       <p className="note">
-        On your signed-in device, open Sealbook, click Add device, and type these
-        eight words.
+        On your signed-in device, open Sealbook, click Add device, and scan this
+        code or type its eight words.
       </p>
+      {pairing.qrText ? <PairingQr text={pairing.qrText} /> : null}
       <div className="words">
-        {(pairing.pairCode ?? "").split(" ").filter(Boolean).map((word, index) => (
+        {pairCodeWords(pairing.pairCode ?? "").map((word, index) => (
           <span key={`${index}-${word}`}>{word}</span>
         ))}
       </div>
@@ -145,17 +147,9 @@ export function Pair() {
         {copy === "copied" ? "Copied" : copy === "refused" ? "Clipboard refused" : "Copy code"}
       </button>
       <p className="note">
-        Then check that both devices show this same confirmation code. Compare it
-        digit for digit: that comparison is what authenticates the two devices to
-        each other.
+        That device then shows what is joining and asks before adding it. The code
+        works once, so start again here if it was mistyped.
       </p>
-      {/* Grouped as the web app and the CLI group it: the two codes are only
-          comparable by eye at the same spacing. */}
-      <code className="confirm">
-        {confirmationGroups(pairing.confirm ?? "").map((group, index) => (
-          <span key={`${index}-${group}`}>{group}</span>
-        ))}
-      </code>
       {pairing.phase === "failed" ? (
         <>
           <p className="error">{pairing.error}</p>
@@ -192,5 +186,17 @@ export function Pair() {
         <p className="note">Waiting for approval…</p>
       )}
     </div>
+  );
+}
+
+/** The pairing code as a QR, dark on white whatever the page's colours. */
+function PairingQr({ text }: { text: string }) {
+  const { size, path } = qrPath(text);
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} shapeRendering="crispEdges" className="qr">
+      <title>Pairing code as a QR code</title>
+      <rect width={size} height={size} fill="#fff" />
+      <path d={path} fill="#111" />
+    </svg>
   );
 }

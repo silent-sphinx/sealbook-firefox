@@ -1,4 +1,13 @@
-import { loginAccount, normalizeServer, pairJoin, pairPoll, type Session } from "@sealbook/lib";
+import {
+  browserOs,
+  loginAccount,
+  normalizeServer,
+  pairJoin,
+  pairJoinStep,
+  type JoinPairing,
+  type Session,
+} from "@sealbook/lib";
+import { friendlyError } from "@sealbook/lib/errors";
 import type { DeviceState } from "@sealbook/lib/types";
 import type { PairingStatus } from "../shared/messages";
 import { ensureWasm, openSession } from "./session";
@@ -10,16 +19,15 @@ import { ensureWasm, openSession } from "./session";
  * moves focus, which destroys the popup and with it the joining device's keys.
  * The pairing tab is only a view onto this state.
  *
- * In-memory, deliberately. The joining keys are not yet enrolled and the pairing
+ * In-memory, deliberately. The joining keys are not yet enrolled, the secret
+ * half of the pairing's CPace run must never be written anywhere, and the
  * request expires server-side, so a suspension that loses them costs one restart
- * of a flow the user is sitting in front of, which is better than writing
- * unenrolled secrets anywhere.
+ * of a flow the user is sitting in front of.
  */
 let pending: {
-  server: string;
-  pairCode: string;
-  confirm: string;
-  state: DeviceState;
+  pairing: JoinPairing;
+  /** Set once approved: the device state with the roster pin the approval sealed. */
+  state?: DeviceState;
   approved: boolean;
   error?: string;
   poll: number;
@@ -27,7 +35,7 @@ let pending: {
 
 export function pairingStatus(): PairingStatus {
   if (!pending) return { phase: "idle" };
-  const shown = { pairCode: pending.pairCode, confirm: pending.confirm };
+  const shown = { pairCode: pending.pairing.code, qrText: pending.pairing.qrText };
   if (pending.error) return { phase: "failed", error: pending.error, ...shown };
   return { phase: pending.approved ? "approved" : "waiting", ...shown };
 }
@@ -43,14 +51,7 @@ export async function beginPairing(server: string, username: string): Promise<Pa
   cancelPairing();
   const normalized = normalizeServer(server);
   const joined = await pairJoin(normalized, username.trim());
-  pending = {
-    server: normalized,
-    pairCode: joined.pairCode,
-    confirm: joined.confirm,
-    state: joined.state,
-    approved: false,
-    poll: 0,
-  };
+  pending = { pairing: joined, approved: false, poll: 0 };
   const target = pending;
   void poll(target);
   return pairingStatus();
@@ -58,16 +59,23 @@ export async function beginPairing(server: string, username: string): Promise<Pa
 
 async function poll(target: NonNullable<typeof pending>): Promise<void> {
   if (pending !== target || target.approved) return;
-  const next = await pairPoll(target.server, target.pairCode);
-  if (pending !== target) return;
-  if (next === "Ready") {
-    target.approved = true;
-  } else if (next === "Expired") {
-    target.error = "That pairing request expired. Start again.";
-  } else {
-    target.poll = setTimeout(() => {
-      void poll(target);
-    }, next.Wait.after_ms) as unknown as number;
+  try {
+    const next = await pairJoinStep(target.pairing, `Firefox extension on ${browserOs()}`);
+    if (pending !== target) return;
+    if (next.kind === "ready") {
+      target.state = next.state;
+      target.approved = true;
+    } else if (next.kind === "expired") {
+      target.error = "That pairing request expired or was turned down. Start again.";
+    } else {
+      target.poll = setTimeout(() => {
+        void poll(target);
+      }, next.afterMs) as unknown as number;
+    }
+  } catch (err) {
+    // Only core refuses here, and a refusal ends the pairing: the approving
+    // device's answer did not verify.
+    if (pending === target) target.error = friendlyError(err);
   }
 }
 
@@ -80,7 +88,9 @@ async function poll(target: NonNullable<typeof pending>): Promise<void> {
  */
 export async function completePairing(password: string): Promise<void> {
   if (!pending) throw new Error("There is no pairing in progress.");
-  if (!pending.approved) throw new Error("Approve this device in the Sealbook web app first.");
+  if (!pending.approved || !pending.state) {
+    throw new Error("Approve this device in the Sealbook web app first.");
+  }
   const session: Session = await loginAccount(pending.state, password);
   await openSession(session, password);
   cancelPairing();

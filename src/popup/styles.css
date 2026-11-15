@@ -113,18 +113,14 @@ p.note {
   user-select: all;
 }
 
-code.confirm {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.2rem 0.9rem;
+/* The pairing code as a QR. Dark on white whatever the theme, which is what a
+   camera needs, with the white tile as its quiet zone. */
+svg.qr {
+  display: block;
+  width: 10rem;
+  height: 10rem;
   margin: 0.75rem 0;
-  padding: 0.625rem;
-  border: 1px solid var(--line);
   border-radius: 0.375rem;
-  background: var(--panel);
-  font-size: 1.3rem;
-  letter-spacing: 0.2em;
 }
 
 /* The buttons the full-width rule above does not apply to: two side by side. */
