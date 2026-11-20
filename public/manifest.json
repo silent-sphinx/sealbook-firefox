@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Sealbook",
-  "version": "0.1.0",
+  "version": "3.0.0",
   "description": "Save the page you are on as a sealed bookmark in your Sealbook vault.",
   "browser_specific_settings": {
     "gecko": {

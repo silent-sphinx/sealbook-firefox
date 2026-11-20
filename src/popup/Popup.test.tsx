@@ -74,6 +74,29 @@ describe("the popup", () => {
     expect(screen.getByText("alice at https://127.0.0.1:8443")).toBeTruthy();
   });
 
+  it("says the key must be replaced in the web app, and offers no save, while a rotation is owed", async () => {
+    const base = unlocked();
+    answerWith((request) =>
+      request.kind === "lookup"
+        ? {
+            ok: true,
+            kind: "lookup",
+            lookup: {
+              collections: [],
+              defaultCollectionId: "",
+              bookmarksEnabled: false,
+              rotationOwed: "Replacing the vault key makes sure no old copy of it works.",
+            },
+          }
+        : base(request),
+    );
+    render(<Popup />);
+
+    expect(await screen.findByText(/no old copy of it works/u)).toBeDefined();
+    expect(screen.getByText(/finish replacing the vault key/u)).toBeDefined();
+    expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  });
+
   it("shows the name this extension goes by on the account's device list", async () => {
     render(<Popup />);
     expect(await screen.findByText("This device: Swift Otter")).toBeDefined();

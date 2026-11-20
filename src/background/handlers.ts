@@ -1,5 +1,6 @@
 import { ensureDefaultBookmarkCollection, loginAccount } from "@sealbook/lib";
 import { normalizeUrl } from "@sealbook/lib/bookmark";
+import { coreErrorMessage } from "@sealbook/lib/wasm";
 import type { BookmarkDraft } from "@sealbook/lib/types";
 import type { Request, Response, Status } from "../shared/messages";
 import {
@@ -122,6 +123,21 @@ async function warmCache(password: string): Promise<Cache> {
 async function lookup(url: string): Promise<Response> {
   const password = await currentPassword();
   if (password === null) throw new LockedError();
+  const owed = await withSession(async (session) => session.rotationOwed);
+  if (owed) {
+    // Nothing below can write, and the cache warm-up would try to.
+    const kind = owed === "recovery" ? "RecoveryRotationPending" : "UpgradeRotationPending";
+    return {
+      ok: true,
+      kind: "lookup",
+      lookup: {
+        collections: [],
+        defaultCollectionId: "",
+        bookmarksEnabled: false,
+        rotationOwed: coreErrorMessage(JSON.stringify({ kind })) ?? "",
+      },
+    };
+  }
   const cache = await warmCache(password);
   const entry = cache.urlIndex[normalizeUrl(url)];
   return {

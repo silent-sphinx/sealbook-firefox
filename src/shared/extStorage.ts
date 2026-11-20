@@ -167,7 +167,9 @@ async function open(
 export async function saveDevice(state: DeviceState, password: string): Promise<void> {
   // The token is reissued by every login and is the one field worth not keeping,
   // so it is dropped before the state is sealed. Matches `storage.ts`.
-  const { session_token: _token, ...secretState } = state;
+  // The salt belonged to the password wrap the protocol no longer has; a record
+  // that still holds it is read, and it goes when the record is next saved.
+  const { session_token: _token, kdf_salt: _staleSalt, ...secretState } = state;
   const metadata = metadataOf(state);
   const sealed = await seal(password, JSON.stringify(secretState), metadataAad(metadata));
   const envelope: Envelope = { ...sealed, metadata };

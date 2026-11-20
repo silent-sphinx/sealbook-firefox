@@ -36,6 +36,12 @@ export type Lookup = {
   existing?: { id: string; draft: BookmarkDraft };
   /** This extension's name on the account's device list. */
   deviceName?: string;
+  /**
+   * Core's sentence when the account owes a key rotation. The server refuses
+   * every write until it is done, and the extension has no screen to confirm a
+   * new recovery phrase on, so it points to the web app instead of trying.
+   */
+  rotationOwed?: string;
 };
 
 export type PairingStatus = {

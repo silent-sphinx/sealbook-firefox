@@ -27,7 +27,6 @@ function deviceState(): DeviceState {
     collection_id: "coll-1",
     device_id: "dev-1",
     session_token: "a-token-that-must-not-be-stored",
-    kdf_salt: [1, 2, 3],
     hpke_sk: [4, 5, 6],
     mldsa_seed: [7, 8, 9],
     ed25519_sk: [10, 11, 12],
@@ -61,6 +60,23 @@ describe("the device envelope", () => {
     expect(loaded?.roster_seq).toBe(3);
   });
 
+  /**
+   * A record written before the protocol dropped the password wrap carries the
+   * salt that wrap used. It is still read, and never written back.
+   */
+  it("reads a record that still holds the stale salt, and does not write it again", async () => {
+    // Sealed as an old build did, bypassing the writer that now drops the salt.
+    await saveDevice(deviceState(), PASSWORD);
+    const loaded = { ...(await loadDevice(PASSWORD)), kdf_salt: [1, 2, 3] } as DeviceState;
+    expect(loaded.kdf_salt).toEqual([1, 2, 3]);
+
+
+    await saveDevice(loaded as DeviceState, PASSWORD);
+    const rewritten = await loadDevice(PASSWORD);
+    expect(rewritten?.device_id).toBe("dev-1");
+    expect(rewritten).not.toHaveProperty("kdf_salt");
+  });
+
   it("returns null under the wrong password rather than throwing", async () => {
     await saveDevice(deviceState(), PASSWORD);
     expect(await loadDevice("not the password")).toBeNull();
@@ -88,7 +104,7 @@ describe("the device envelope", () => {
     // The whole record, read as the browser holds it: no key material anywhere
     // outside the ciphertext.
     const stored = JSON.stringify(ext.storage.local.store.get("sealbook.device"));
-    for (const secret of ["hpke_sk", "mldsa_seed", "ed25519_sk", "kdf_salt", "a-token"]) {
+    for (const secret of ["hpke_sk", "mldsa_seed", "ed25519_sk", "a-token"]) {
       expect(stored).not.toContain(secret);
     }
   });

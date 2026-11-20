@@ -137,6 +137,18 @@ export function Popup() {
         </div>
       );
     case "ready": {
+      if (phase.lookup.rotationOwed) {
+        return (
+          <>
+            <p className="error">{phase.lookup.rotationOwed}</p>
+            <p className="note">
+              Open the Sealbook web app and finish replacing the vault key. This extension cannot
+              save until then.
+            </p>
+            <AccountFooter account={account} canLock onChanged={reload} />
+          </>
+        );
+      }
       if (!phase.lookup.bookmarksEnabled) {
         return (
           <>

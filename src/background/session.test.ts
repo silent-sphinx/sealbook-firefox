@@ -13,8 +13,8 @@ class ApiError extends Error {
 const loginAccount = vi.fn<(...args: never[]) => Promise<unknown>>();
 const setProxyLoopback = vi.fn<(enabled: boolean) => void>();
 const initWasm = vi.fn<() => Promise<void>>(async () => {});
-const protocolVersion = vi.fn<() => string>(() => "sealbook-v1");
-const payloadSchemaVersion = vi.fn<() => string>(() => "1.0");
+const protocolVersion = vi.fn<() => string>(() => "sealbook-v2");
+const payloadSchemaVersion = vi.fn<() => string>(() => "1.1");
 
 vi.mock("@sealbook/lib", () => ({ ApiError, loginAccount, setProxyLoopback }));
 // The real module is kept for the rest: sealing the device record stretches the
@@ -40,7 +40,6 @@ function deviceState(): DeviceState {
     account_id: "acct-1",
     collection_id: "coll-1",
     device_id: "dev-1",
-    kdf_salt: [1],
     hpke_sk: [2],
     mldsa_seed: [3],
     ed25519_sk: [4],
@@ -68,8 +67,8 @@ beforeEach(() => {
   loginAccount.mockReset();
   setProxyLoopback.mockClear();
   initWasm.mockClear();
-  protocolVersion.mockReturnValue("sealbook-v1");
-  payloadSchemaVersion.mockReturnValue("1.0");
+  protocolVersion.mockReturnValue("sealbook-v2");
+  payloadSchemaVersion.mockReturnValue("1.1");
 });
 
 afterEach(() => {
@@ -108,7 +107,7 @@ describe("loading the crypto module", () => {
     payloadSchemaVersion.mockReturnValue("0.9");
     await expect(module.ensureWasm()).rejects.toThrow(/stale/u);
 
-    payloadSchemaVersion.mockReturnValue("1.0");
+    payloadSchemaVersion.mockReturnValue("1.1");
     await expect(module.ensureWasm()).resolves.toBeUndefined();
   });
 });
