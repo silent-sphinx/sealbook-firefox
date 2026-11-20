@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { DeviceState } from "@sealbook/lib/types";
+import { localStorageKdf } from "@sealbook/lib/wasm";
 import { installExtensionStub, removeExtensionStub, type ExtensionStub } from "../test/extension";
 import {
+  deriveStorageKey,
   forgetDevice,
   hasBootstrapped,
   loadCache,
@@ -106,7 +108,6 @@ describe("the device envelope", () => {
     // user whose paired extension stops opening.
     const salt = crypto.getRandomValues(new Uint8Array(16));
     const iv = crypto.getRandomValues(new Uint8Array(12));
-    const { deriveStorageKey } = await import("@sealbook/lib/storage");
     const key = await deriveStorageKey(PASSWORD, salt);
     const state = deviceState();
     const { session_token: _token, ...secret } = state;
@@ -131,6 +132,60 @@ describe("the device envelope", () => {
     });
 
     expect((await loadDevice(PASSWORD))?.device_id).toBe("dev-1");
+  });
+
+  it("seals a new record under Argon2id and names the suite", async () => {
+    await saveDevice(deviceState(), PASSWORD);
+    const envelope = ext.storage.local.store.get("sealbook.device") as { kdf?: string };
+    expect(envelope.kdf).toBe(localStorageKdf());
+  });
+
+  it("opens a PBKDF2 record and re-seals it under Argon2id", async () => {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const state = deviceState();
+    const key = await deriveStorageKey(PASSWORD, salt);
+    const { session_token: _token, ...secret } = state;
+    const ciphertext = await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv },
+      key,
+      new TextEncoder().encode(JSON.stringify(secret)),
+    );
+    const { b64encode } = await import("@sealbook/lib/bytes");
+    ext.storage.local.store.set("sealbook.device", {
+      version: 1,
+      metadata: {
+        server: state.server,
+        username: state.username,
+        account_id: state.account_id,
+        collection_id: state.collection_id,
+        device_id: state.device_id,
+      },
+      salt: b64encode(salt),
+      iv: b64encode(iv),
+      ciphertext: b64encode(new Uint8Array(ciphertext)),
+    });
+
+    expect((await loadDevice("not the password"))?.device_id).toBeUndefined();
+    expect((ext.storage.local.store.get("sealbook.device") as { kdf?: string }).kdf).toBeUndefined();
+
+    expect((await loadDevice(PASSWORD))?.device_id).toBe("dev-1");
+    const resealed = ext.storage.local.store.get("sealbook.device") as { kdf?: string };
+    expect(resealed.kdf).toBe(localStorageKdf());
+    expect((await loadDevice(PASSWORD))?.hpke_sk).toEqual([4, 5, 6]);
+  });
+
+  it("refuses a record whose metadata was swapped for another account's", async () => {
+    await saveDevice(deviceState(), PASSWORD);
+    const envelope = ext.storage.local.store.get("sealbook.device") as {
+      metadata: Record<string, string>;
+    };
+    ext.storage.local.store.set("sealbook.device", {
+      ...envelope,
+      metadata: { ...envelope.metadata, account_id: "acct-2" },
+    });
+
+    expect(await loadDevice(PASSWORD)).toBeNull();
   });
 });
 

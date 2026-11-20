@@ -1,5 +1,6 @@
 import { b64ToByteArray, b64encode } from "@sealbook/lib/bytes";
 import type { DeviceState } from "@sealbook/lib/types";
+import { localStorageKdf, localStorageKey } from "@sealbook/lib/wasm";
 import { ext } from "./runtime";
 
 /**
@@ -33,6 +34,8 @@ export type DeviceMetadata = Pick<
 type Envelope = {
   version: number;
   metadata: DeviceMetadata;
+  /** The stretching suite the key came from; absent on a record made under PBKDF2. */
+  kdf?: string;
   salt: string;
   iv: string;
   ciphertext: string;
@@ -40,6 +43,7 @@ type Envelope = {
 
 type OpaqueEnvelope = {
   version: number;
+  kdf?: string;
   salt: string;
   iv: string;
   ciphertext: string;
@@ -61,7 +65,21 @@ function metadataOf(state: DeviceState): DeviceMetadata {
   return { server, username, account_id, collection_id, device_id };
 }
 
-export async function deriveStorageKey(password: string, salt: Uint8Array): Promise<CryptoKey> {
+/**
+ * The key for something kept under the password. A record that names no suite
+ * predates Argon2id and was made under PBKDF2, which is kept only so such a
+ * record can still be read and then re-saved. Argon2id runs in the wasm
+ * module, which the caller must already have initialised.
+ */
+export async function deriveStorageKey(
+  password: string,
+  salt: Uint8Array,
+  kdf?: string,
+): Promise<CryptoKey> {
+  if (kdf) {
+    const stretched = Uint8Array.from(b64ToByteArray(localStorageKey(password, b64encode(salt), kdf)));
+    return crypto.subtle.importKey("raw", stretched, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
   return crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
@@ -82,29 +100,60 @@ function importPassword(password: string): Promise<CryptoKey> {
   ]);
 }
 
-async function seal(password: string, plaintext: string): Promise<OpaqueEnvelope> {
+/**
+ * What the device ciphertext is bound to, so the plaintext metadata beside it
+ * cannot be swapped for another account's without the record failing to open.
+ * Matches `metadataAad` in `sealbook-web/src/lib/storage.ts`.
+ */
+function metadataAad(metadata: DeviceMetadata): Uint8Array<ArrayBuffer> {
+  const { server, username, account_id, collection_id, device_id } = metadata;
+  return new TextEncoder().encode(
+    JSON.stringify([server, username, account_id, collection_id, device_id]),
+  );
+}
+
+async function seal(
+  password: string,
+  plaintext: string,
+  aad?: Uint8Array<ArrayBuffer>,
+): Promise<OpaqueEnvelope> {
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const key = await deriveStorageKey(password, salt);
+  const kdf = localStorageKdf();
+  const key = await deriveStorageKey(password, salt, kdf);
   const ciphertext = await crypto.subtle.encrypt(
-    { name: "AES-GCM", iv },
+    { name: "AES-GCM", iv, ...(aad ? { additionalData: aad } : {}) },
     key,
     new TextEncoder().encode(plaintext),
   );
   return {
     version: STORAGE_VERSION,
+    kdf,
     salt: b64encode(salt),
     iv: b64encode(iv),
     ciphertext: b64encode(new Uint8Array(ciphertext)),
   };
 }
 
-async function open(password: string, envelope: OpaqueEnvelope): Promise<string | null> {
+async function open(
+  password: string,
+  envelope: OpaqueEnvelope,
+  aad?: Uint8Array<ArrayBuffer>,
+): Promise<string | null> {
   if (envelope.version !== STORAGE_VERSION) return null;
   try {
-    const key = await deriveStorageKey(password, Uint8Array.from(b64ToByteArray(envelope.salt)));
+    const key = await deriveStorageKey(
+      password,
+      Uint8Array.from(b64ToByteArray(envelope.salt)),
+      envelope.kdf,
+    );
     const plaintext = await crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: Uint8Array.from(b64ToByteArray(envelope.iv)) },
+      {
+        name: "AES-GCM",
+        iv: Uint8Array.from(b64ToByteArray(envelope.iv)),
+        // A record without a suite predates the binding.
+        ...(envelope.kdf && aad ? { additionalData: aad } : {}),
+      },
       key,
       Uint8Array.from(b64ToByteArray(envelope.ciphertext)),
     );
@@ -119,8 +168,9 @@ export async function saveDevice(state: DeviceState, password: string): Promise<
   // The token is reissued by every login and is the one field worth not keeping,
   // so it is dropped before the state is sealed. Matches `storage.ts`.
   const { session_token: _token, ...secretState } = state;
-  const sealed = await seal(password, JSON.stringify(secretState));
-  const envelope: Envelope = { ...sealed, metadata: metadataOf(state) };
+  const metadata = metadataOf(state);
+  const sealed = await seal(password, JSON.stringify(secretState), metadataAad(metadata));
+  const envelope: Envelope = { ...sealed, metadata };
   try {
     await ext().storage.local.set({ [DEVICE_KEY]: envelope });
   } catch (err) {
@@ -141,13 +191,24 @@ async function readDevice(): Promise<Envelope | null> {
 export async function loadDevice(password: string): Promise<DeviceState | null> {
   const envelope = await readDevice();
   if (!envelope) return null;
-  const plaintext = await open(password, envelope);
+  const plaintext = await open(password, envelope, metadataAad(envelope.metadata));
   if (plaintext === null) return null;
+  let state: DeviceState;
   try {
-    return JSON.parse(plaintext) as DeviceState;
+    state = JSON.parse(plaintext) as DeviceState;
   } catch {
     return null;
   }
+  if (!envelope.kdf) {
+    // The password is in hand, which is the only time an older record can be
+    // moved off PBKDF2. Failing to is not a failed unlock.
+    try {
+      await saveDevice(state, password);
+    } catch {
+      // The old record still opens next time.
+    }
+  }
+  return state;
 }
 
 export async function loadDeviceMetadata(): Promise<DeviceMetadata | null> {

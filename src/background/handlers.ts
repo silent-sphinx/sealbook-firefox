@@ -89,13 +89,14 @@ async function status(): Promise<Status> {
 }
 
 async function unlock(password: string): Promise<Response> {
+  // Before the device record is opened, which stretches the password in the
+  // bundled module, and before the login, which signs with it: a stale build
+  // should fail as itself here rather than part way through.
+  await ensureWasm();
   const state = await loadDevice(password);
   if (!state) {
     return { ok: false, error: "That password did not open this device's keys." };
   }
-  // Before the login, which signs its challenge with the bundled module: a stale
-  // build should fail as itself here rather than part way through OPAQUE.
-  await ensureWasm();
   // The stored envelope holds no token, so unlocking is a login. It also runs
   // `syncRoster`, which is where the roster check and the rollback pin happen.
   await openSession(await loginAccount(state, password), password);

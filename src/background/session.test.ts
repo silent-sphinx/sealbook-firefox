@@ -17,7 +17,14 @@ const protocolVersion = vi.fn<() => string>(() => "sealbook-v1");
 const payloadSchemaVersion = vi.fn<() => string>(() => "1.0");
 
 vi.mock("@sealbook/lib", () => ({ ApiError, loginAccount, setProxyLoopback }));
-vi.mock("@sealbook/lib/wasm", () => ({ initWasm, protocolVersion, payloadSchemaVersion }));
+// The real module is kept for the rest: sealing the device record stretches the
+// password in it, and the setup file has already instantiated it.
+vi.mock("@sealbook/lib/wasm", async (original) => ({
+  ...(await original<typeof import("@sealbook/lib/wasm")>()),
+  initWasm,
+  protocolVersion,
+  payloadSchemaVersion,
+}));
 
 const { currentSession, dropSession, LockedError, openSession, withSession } = await import(
   "./session"
